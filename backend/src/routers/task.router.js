@@ -8,10 +8,13 @@ router.route('/')
     .get(verifyJWT, taskController.getAllTasks)
     .post(verifyJWT, taskController.createTask);
 
+router.route('/statistics')
+    .get(verifyJWT, taskController.getTaskStatistics);
+
 router.route('/:taskId')
-    .get(taskController.getTaskById)
-    .put(taskController.updateTask)
-    .delete(taskController.deleteTask);
+    .get(verifyJWT, taskController.getTaskById)
+    .put(verifyJWT, taskController.updateTask)
+    .delete(verifyJWT, taskController.deleteTask);
 
 module.exports = router;
 

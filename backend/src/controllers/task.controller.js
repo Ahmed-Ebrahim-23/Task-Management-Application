@@ -32,14 +32,49 @@ const createTask = async (req, res) => {
 const getAllTasks = async (req, res) => {
     try {
         const userId = req.currentUser;
+        const { page = 1, limit = 10, search = '', status = 'all' } = req.query;
+        
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 10;
+        const offset = (pageNum - 1) * limitNum;
+        
+        const where = { userId };
+        
+        // status filter 
+        if (status !== 'all' && Object.values(TaskStatus).includes(status)) {
+            where.status = status;
+        }
+        
+        // title search filter 
+        if (search.trim()) {
+            where.title = { contains: search, mode: 'insensitive' };
+        }
+        
+        // pagination
+        const totalCount = await prisma.task.count({ where });
         
         const tasks = await prisma.task.findMany({
-            where: { userId }
+            where,
+            skip: offset,
+            take: limitNum,
+            orderBy: { createdAt: 'desc' }
         });
+        
+        const totalPages = Math.ceil(totalCount / limitNum);
         
         res.status(200).json({
             status: "success",
-            data: tasks,
+            data: {
+                tasks,
+                pagination: {
+                    currentPage: pageNum,
+                    totalPages,
+                    totalCount,
+                    pageSize: limitNum,
+                    hasNextPage: pageNum < totalPages,
+                    hasPrevPage: pageNum > 1
+                }
+            },
             message: "Tasks retrieved successfully"
         });
     } catch (error) {
@@ -55,9 +90,13 @@ const getAllTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
     try {
         const { taskId } = req.params;
+        const userId = req.currentUser;
         
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
+        const task = await prisma.task.findFirst({
+            where: { 
+                id: parseInt(taskId),
+                userId: userId
+            }
         });
         
         if (!task) {
@@ -171,10 +210,44 @@ const deleteTask = async (req, res) => {
     }
 }
 
+const getTaskStatistics = async (req, res) => {
+    try {
+        const userId = req.currentUser;
+        
+        const [totalCount, pendingCount, inProgressCount, doneCount] = await Promise.all([
+            prisma.task.count({ where: { userId } }),
+            prisma.task.count({ where: { userId, status: 'pending' } }),
+            prisma.task.count({ where: { userId, status: 'in_progress' } }),
+            prisma.task.count({ where: { userId, status: 'done' } })
+        ]);
+        
+        const statistics = {
+            total: totalCount,
+            pending: pendingCount,
+            inProgress: inProgressCount,
+            done: doneCount
+        };
+        
+        res.status(200).json({
+            status: "success",
+            data: statistics,
+            message: "Task statistics retrieved successfully"
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: "error",
+            data: null,
+            message: "Internal Server Error"
+        });
+        console.error(error.message);
+    }
+}
+
 module.exports = {
     createTask,
     getAllTasks,
     getTaskById,
     updateTask,
-    deleteTask
+    deleteTask,
+    getTaskStatistics
 };
