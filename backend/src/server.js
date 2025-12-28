@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT;
@@ -9,9 +10,10 @@ const userRouter = require("./routers/user.router");
 const taskRouter = require("./routers/task.router");
 
 app.use(express.json());
+app.use(cors());
 
 app.use((req, res, next) => {
-  console.log(`${req.method} http://localhost:${port}${req.path}`);
+  console.log(`${req.method} http://localhost:${port}${req.path}${JSON.stringify(req.params)}`);
   next();
 });  
 
